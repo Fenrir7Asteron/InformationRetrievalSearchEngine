@@ -159,7 +159,7 @@ import os
 from bs4 import BeautifulSoup
 
 
-def get_collection():
+def download_collection():
     if not os.path.exists('dataset'):
         url = 'https://archive.ics.uci.edu/ml/machine-learning-databases/reuters21578-mld/reuters21578.tar.gz'
         resp = requests.get(url, timeout=5)
@@ -170,7 +170,6 @@ def get_collection():
         tar.extractall('dataset')
         tar.close()
 
-    collection = []
     i = 0
     for filename in os.listdir('dataset'):
         if '.sgm' in filename:
@@ -178,9 +177,8 @@ def get_collection():
                 soup = BeautifulSoup(input.read())
                 texts = soup.find_all("text")
                 for news in texts:
-                    collection.append((news.text, i, str(news.title)[7:-8]))
+                    store_document(i, str(news.title)[7:-8], news.text)
                     i += 1
-    return collection
 
 
 """# Prefix tree dictionary"""
@@ -246,7 +244,7 @@ You will work with the boolean search model. Construct a dictionary which maps w
 import json
 
 
-def make_index(collection):
+def make_index():
     inverted_index = {}
     for element in collection:
         text = preprocess(element[0])
@@ -262,7 +260,7 @@ def make_index(collection):
     return inverted_index
 
 
-def make_soundex_index(collection, prefix_dict, r_prefix_dict):
+def make_soundex_index(prefix_dict, r_prefix_dict):
     # inverted_index = {}
     soundex_dict = {}
     for element in collection:
@@ -286,7 +284,7 @@ def make_soundex_index(collection, prefix_dict, r_prefix_dict):
     return soundex_dict
 
 
-def get_indices(collection, prefix_dict, r_prefix_dict):
+def get_indices(prefix_dict, r_prefix_dict):
     if os.path.exists("index.json"):
         index = json.loads(open("index.json", "r").read())
     else:
@@ -348,7 +346,7 @@ def reverse_words(words):
     return words
 
 
-def search(query, index, soundex_dict, prefix_dict, r_prefix_dict):
+def search(query, aux_index, mongo_client):
     query = preprocess(query)
     relevant_documents = None
     for i in range(len(query)):
@@ -391,7 +389,7 @@ def search(query, index, soundex_dict, prefix_dict, r_prefix_dict):
 
 
 def initialize_engine():
-    collection = get_collection()
+    download_collection()
     prefix_dict, r_prefix_dict = get_trees()
-    index, soundex_dict = get_indices(collection, prefix_dict, r_prefix_dict)
-    return collection, index, soundex_dict, prefix_dict, r_prefix_dict
+    index, soundex_dict = get_indices(prefix_dict, r_prefix_dict)
+    return index, soundex_dict, prefix_dict, r_prefix_dict
