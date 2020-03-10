@@ -29,6 +29,9 @@ import re
 
 
 # normalize text
+from storage import store_document
+
+
 def normalize(text):
     text = text.lower()
     text = ' '.join(re.findall(r'[\w*]+', text))
@@ -169,16 +172,6 @@ def download_collection():
         tar = tarfile.open('data.tar.gz', "r:gz")
         tar.extractall('dataset')
         tar.close()
-
-    i = 0
-    for filename in os.listdir('dataset'):
-        if '.sgm' in filename:
-            with open(os.path.join('dataset', filename), "rb") as input:
-                soup = BeautifulSoup(input.read())
-                texts = soup.find_all("text")
-                for news in texts:
-                    store_document(i, str(news.title)[7:-8], news.text)
-                    i += 1
 
 
 """# Prefix tree dictionary"""
@@ -388,8 +381,29 @@ def search(query, aux_index, mongo_client):
     return list(relevant_documents)
 
 
-def initialize_engine():
+last = 0
+doc_id = 0
+
+
+def crawl(aux_index, mongodb):
     download_collection()
+    global last, doc_id
+
+    files = os.listdir('dataset')
+    while last < len(files):
+        filename = files[last]
+        if '.sgm' not in filename:
+            last += 1
+            continue
+        with open(os.path.join('dataset', filename), "rb") as input:
+            soup = BeautifulSoup(input.read())
+            texts = soup.find_all("text")
+            for news in texts:
+                store_document(doc_id, str(news.title)[7:-8], news.text, mongodb)
+                doc_id += 1
+        last += 1
+        break
+
     prefix_dict, r_prefix_dict = get_trees()
     index, soundex_dict = get_indices(prefix_dict, r_prefix_dict)
     return index, soundex_dict, prefix_dict, r_prefix_dict
