@@ -1,14 +1,14 @@
 import redis
 import pymongo
 import time
-import json
 from threading import Thread
-from engine import initialize_engine, crawl
-from server import run_server
+from engine.engine import crawl, download_collection
+from server.server import run_server
+import utils.shared as shared
+from utils.storage import append_to_listing, get_listing, set_listing
 
 
-aux_index = None
-mongodb = None
+counter = 0
 
 
 class CrawlerThread(Thread):
@@ -21,20 +21,41 @@ class CrawlerThread(Thread):
 
     def run(self):
         while True:
-            crawl(aux_index, mongodb)
+            crawl()
+            global counter
+            print(counter)
+            counter += 1
+            if counter == 1:
+                self.dump()
+                counter = 0
             time.sleep(1)
+
+    def dump(self):
+        for term in shared.aux_index.keys():
+            term = term.decode()
+            data = get_listing(term, 'AUX')
+            if data['dirty'] and not data['deleted']:
+                set_listing(term, data['listing'], 'MAIN')
+                set_listing(term, data['listing'], 'AUX', dirty=False)
 
 
 if __name__ == '__main__':
+    # Download collection
+    download_collection()
+
     # Initialize databases
+    global aux_index, main_index
     pool = redis.ConnectionPool(host='localhost', port=6379, db=0)
-    aux_index = redis.Redis(connection_pool=pool)
-    aux_index.flushall()
+    shared.aux_index = redis.Redis(connection_pool=pool)
+    shared.aux_index.flushall()
 
     mongo_client = pymongo.MongoClient(host='127.0.0.1', port=27017)
-    mongodb = mongo_client.searchDB
+    shared.main_index = mongo_client.searchDB.index
+    shared.main_index.delete_many({})
 
+    # Run crawler thread
     crawler = CrawlerThread()
     crawler.start()
 
-    run_server()
+    # # Run main server thread loop
+    # run_server()

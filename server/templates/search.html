@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Search</title>
+</head>
+<body>
+
+    <form action="{{ url_for('index') }}" method="post">
+    <p>
+        <textarea name="search" rows="1">{{savedQuery}}</textarea>
+        <input type="submit">
+	</p>
+    </form>
+
+    {% if ids %}
+        {% for i in range(0, ids | length) %}
+            <a href={{url_for('content')}}?id={{ids[i]}}> {{titles[i]}} </a><br>
+        {% endfor %}
+    {% endif %}
+</body>
+</html>
